@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pizza Tycoon</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+body{margin:0;overflow:hidden;background:#000;color:white;font-family:Arial,sans-serif;touch-action:none}
+button{border:0;border-radius:9px;padding:10px;font-weight:bold;cursor:pointer}
+#game{position:fixed;inset:0}
+#start{position:fixed;inset:0;background:#000;z-index:10;display:flex;align-items:center;justify-content:center;flex-direction:column}
+#start h1{font-size:clamp(36px,8vw,75px);margin:0 0 25px}
+#place{background:#00ef28;color:white;font-size:clamp(35px,7vw,65px);padding:20px 70px;border-radius:25px;box-shadow:0 0 35px #00ef2888}
+#hud{display:none;position:fixed;inset:0;pointer-events:none}
+#top{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap;z-index:5}
+.pill{background:#08080899;border:1px solid #ffffff35;border-radius:10px;padding:10px;font-size:13px}
+#tasksToggle{display:none;pointer-events:auto;cursor:pointer}
+#tasks{position:absolute;right:12px;top:75px;width:205px;background:#08080875;border:1px solid #ffffff35;border-radius:12px;padding:13px;pointer-events:auto;backdrop-filter:blur(5px);z-index:5}
+#tasks h3{margin:0 0 12px;font-size:16px}
+.task{font-size:13px;margin:10px 0;color:#ddd;display:flex;gap:8px;align-items:center}
+.task.done{color:#80efaa;text-decoration:line-through}
+.task .tick{width:16px;height:16px;border:1px solid #ddd;border-radius:4px;flex-shrink:0}
+.task.done .tick{background:#39ce79;border-color:#39ce79}
+#order{position:absolute;right:12px;bottom:14px;width:205px;background:#08080875;border:1px solid #ffffff35;border-radius:12px;padding:12px;pointer-events:auto;backdrop-filter:blur(5px);font-size:13px;z-index:5;overflow-y:auto;max-height:calc(100vh - 100px)}
+#order h3{margin:0 0 8px}
+#ingredients{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+#ingredients button{font-size:11px;background:#ddd;color:#111;padding:7px}
+#ingredients button.selected{background:#43d18b}
+.action{background:#fff;color:#111;width:100%;margin-top:5px}
+#message{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:#111b;padding:12px 18px;border-radius:10px;display:none;text-align:center;font-size:14px;z-index:7;max-width:70vw}
+#hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:#1119;padding:9px 15px;border-radius:10px;font-size:12px;white-space:nowrap;z-index:7}
+
+/* look area is BEHIND all buttons now */
+#lookarea{position:absolute;right:0;top:0;width:55%;height:100%;pointer-events:auto;touch-action:none;z-index:1}
+#looklabel{position:absolute;right:15px;bottom:150px;color:#fff8;font-size:11px;pointer-events:none;z-index:2;display:none}
+
+/* Roblox-style joystick */
+#joystick{position:absolute;left:28px;bottom:30px;width:150px;height:150px;border-radius:50%;background:#000000cc;border:3px solid #fff;pointer-events:auto;touch-action:none;display:none;z-index:6}
+#knob{position:absolute;width:64px;height:64px;background:#fff;border-radius:50%;left:50%;top:50%;margin:-32px 0 0 -32px;box-shadow:0 2px 8px #0008}
+
+/* Jump button */
+#jump{display:none;position:absolute;right:28px;bottom:30px;width:92px;height:92px;border-radius:50%;background:#000000cc;color:#fff;border:3px solid #fff;font-size:13px;line-height:1.2;pointer-events:auto;touch-action:none;z-index:6;padding:0}
+#jump span{display:block;font-size:30px}
+
+/* USE button */
+#use{position:absolute;right:230px;bottom:35px;width:70px;height:70px;border-radius:50%;background:#fff;color:#111;border:3px solid #111;box-shadow:0 0 0 2px white;font-size:13px;pointer-events:auto;z-index:6}
+
+#help{position:absolute;left:10px;top:65px;pointer-events:auto;z-index:5}
+#help button{background:#111b;color:white;border:1px solid #fff5}
+#helptext{display:none;background:#111d;padding:10px;border-radius:9px;font-size:12px;line-height:1.5;max-width:190px;margin-top:5px}
+
+/* TOUCH DEVICES (works in landscape too) */
+body.touch #joystick,body.touch #jump{display:block}
+body.touch #looklabel{display:block}
+body.touch #tasksToggle{display:block}
+body.touch #tasks{display:none;top:56px;right:182px;width:150px;padding:9px}
+body.touch #tasks.open{display:block}
+body.touch #tasks h3{font-size:13px;margin-bottom:6px}
+body.touch .task{font-size:11px;margin:6px 0}
+body.touch #order{top:56px;bottom:135px;right:8px;width:166px;padding:9px;font-size:11px;max-height:none}
+body.touch #order h3{font-size:13px}
+body.touch .action{padding:8px}
+body.touch #use{right:135px;bottom:45px;width:68px;height:68px}
+body.touch #hint{font-size:10px;bottom:6px;padding:6px 10px;max-width:40vw;overflow:hidden;text-overflow:ellipsis}
+body.touch #help{top:56px}
+body.touch .pill{font-size:11px;padding:7px}
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="start">
+ <h1>🍕 PIZZA TYCOON</h1>
+ <button id="place">PLACE</button>
+ <p>Welcome to your pizza restaurant!</p>
+ <p style="color:#aaa;font-size:12px">Your first shift starts now.</p>
+</div>
+
+<div id="hud">
+ <div id="lookarea"></div>
+
+ <div id="top">
+  <div class="pill">🍕 PIZZA TYCOON</div>
+  <div class="pill">⭐ <span id="stars">0</span></div>
+  <div class="pill">💵 $<span id="money">0</span></div>
+  <div class="pill" id="tasksToggle">📋 Tasks</div>
+ </div>
+
+ <div id="help">
+  <button id="helpbutton">?</button>
+  <div id="helptext">
+   <b>Controls</b><br>
+   Mobile: use the joystick to walk. Drag the right side to look around. JUMP to jump. Tap USE near a station.<br><br>
+   Computer: WASD to walk, mouse to look, Space to jump, E to interact.
+  </div>
+ </div>
+
+ <div id="tasks">
+  <h3>📋 YOUR TASKS</h3>
+  <div id="tasklist"></div>
+  <div style="font-size:10px;color:#ffffff88;margin-top:10px">Complete each task to serve your customer.</div>
+ </div>
+
+ <div id="order">
+  <h3>🍕 CUSTOMER ORDER</h3>
+  <div id="orderText">Waiting for order...</div>
+  <hr style="border-color:#ffffff33">
+  <b>Ingredients</b>
+  <div id="ingredients"></div>
+  <div id="pizzaStatus" style="color:#ddd;margin:7px 0">Take the customer's order.</div>
+  <button class="action" id="prepare">🥣 Prepare pizza</button>
+  <button class="action" id="bake">🔥 Bake pizza</button>
+  <button class="action" id="pickup">📦 Pick up</button>
+  <button class="action" id="serve">🛎️ Serve</button>
+ </div>
+
+ <div id="message"></div>
+ <div id="joystick"><div id="knob"></div></div>
+ <button id="jump"><span>⬆</span>JUMP</button>
+ <button id="use">USE</button>
+ <div id="looklabel">DRAG TO LOOK</div>
+ <div id="hint">Walk to the customer and press USE</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script>
+(() => {
+"use strict";
+
+if(!window.THREE){
+ document.getElementById("start").innerHTML="<h2>3D engine failed to load</h2><p>Check your internet and refresh.</p>";
+ return;
+}
+
+// Detect touch devices (phones/tablets, any orientation)
+const isTouch=(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||navigator.maxTouchPoints>0;
+if(isTouch)document.body.classList.add("touch");
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x9bc8dc);
+scene.fog=new THREE.Fog(0x9bc8dc,35,85);
+
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,120);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+document.getElementById("game").appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x756653,2));
+const sun=new THREE.DirectionalLight(0xffffff,2.2);
+sun.position.set(-10,20,12);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+scene.add(sun);
+
+const mats={};
+function mat(n,c,r=.8){
+ if(!mats[n])mats[n]=new THREE.MeshStandardMaterial({color:c,roughness:r});
+ return mats[n];
+}
+const M={
+ floor:mat("floor",0xe7dfd3),
+ tile:mat("tile",0xd6cec1),
+ wall:mat("wall",0xf1e6d5),
+ red:mat("red",0xb9362a),
+ redDark:mat("redDark",0x79271e),
+ wood:mat("wood",0x98613a),
+ metal:mat("metal",0x9ca7af,.4),
+ black:mat("black",0x252a30),
+ white:mat("white",0xf7f3eb),
+ green:mat("green",0x36934e),
+ glass:mat("glass",0x82cde6,.2),
+ cheese:mat("cheese",0xffc742),
+ tomato:mat("tomato",0xc82d25),
+ skin:mat("skin",0xe8b18a),
+ blue:mat("blue",0x287eb3)
+};
+
+const map=new THREE.Group();
+scene.add(map);
+
+function box(p,x,y,z,w,h,d,m){
+ const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
+ o.position.set(x,y,z);
+ o.castShadow=true;
+ o.receiveShadow=true;
+ p.add(o);
+ return o;
+}
+function cyl(p,x,y,z,r,h,m){
+ const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,24),m);
+ o.position.set(x,y,z);
+ o.castShadow=true;
+ o.receiveShadow=true;
+ p.add(o);
+ return o;
+}
+function wall(x,z,w,d,h=3.3){
+ box(map,x,h/2,z,w,h,d,M.wall);
+}
+function counter(x,z,w,d,m=M.red){
+ box(map,x,.55,z,w,1.1,d,m);
+ box(map,x,1.13,z,w+.08,.12,d+.08,M.white);
+}
+function table(x,z){
+ cyl(map,x,.8,z,.7,.14,M.wood);
+ cyl(map,x,.4,z,.12,.7,M.black);
+ box(map,x-1,.42,z,.65,.12,.65,M.wood);
+ box(map,x-1,.85,z+.25,.65,.75,.12,M.red);
+ box(map,x+1,.42,z,.65,.12,.65,M.wood);
+ box(map,x+1,.85,z+.25,.65,.75,.12,M.red);
+}
+function plant(x,z){
+ cyl(map,x,.25,z,.3,.5,M.wood);
+ for(let i=0;i<6;i++){
+  const leaf=box(map,x+Math.sin(i)*.2,.8,z+Math.cos(i)*.2,.15,.7,.15,M.green);
+  leaf.rotation.z=Math.sin(i)*.5;
+ }
+}
+function oven(x,z){
+ box(map,x,1.1,z,2.2,2.2,1.5,M.metal);
+ box(map,x,1.1,z-.78,1.6,1.2,.07,M.black);
+ box(map,x,1.1,z-.83,1.2,.75,.04,mat("ovenGlass",0x251d17));
+ box(map,x,2.3,z-.8,1.6,.12,.1,M.white);
+ for(let i=-1;i<=1;i++)cyl(map,x+i*.5,2.5,z-.8,.1,.08,M.black);
+}
+function fridge(x,z){
+ box(map,x,1.1,z,1.2,2.2,1.2,M.metal);
+ box(map,x-.3,1.1,z-.62,.04,1.8,.05,M.black);
+ box(map,x+.3,1.1,z-.62,.04,1.8,.05,M.black);
+}
+function displayPizza(x,z){
+ cyl(map,x,1.25,z,.4,.1,M.wood);
+ cyl(map,x,1.32,z,.36,.07,M.cheese);
+ for(let i=0;i<7;i++){
+  const a=i*2.4;
+  cyl(map,x+Math.cos(a)*.2,1.38,z+Math.sin(a)*.2,.06,.03,M.tomato);
+ }
+}
+
+function buildMap(){
+ box(map,0,-.2,0,22,.4,18,M.floor);
+ for(let x=-10;x<=10;x+=2){
+  for(let z=-8;z<=8;z+=2)box(map,x,.012,z,1.96,.025,1.96,M.tile);
+ }
+
+ wall(-11,0,.3,18);
+ wall(11,0,.3,18);
+ wall(0,-9,22,.3);
+ wall(-7,9,8,.3);
+ wall(7,9,8,.3);
+
+ for(let z=-6;z<=6;z+=3)box(map,-10.82,1.8,z,.05,1.6,2.2,M.glass);
+ for(let x=-5;x<=5;x+=3)box(map,x,1.8,8.82,2.4,1.6,.05,M.glass);
+
+ wall(-1,-5.7,12,.22,2.8);
+ wall(-7,-3.8,.22,4,2.8);
+ wall(5,-3.8,.22,4,2.8);
+
+ counter(-2,-7.4,8,1,M.metal);
+ oven(-4.8,-7.1);
+ oven(-1.8,-7.1);
+ fridge(2.2,-7.2);
+
+ counter(0,-4.2,8,1);
+ for(let x=-3;x<=3;x+=1.5){
+  cyl(map,x,1.28,-4.2,.1,.08,M.tomato);
+  cyl(map,x+.3,1.28,-4.2,.1,.08,M.green);
+  cyl(map,x+.6,1.28,-4.2,.1,.08,M.cheese);
+ }
+
+ counter(-4,-2,2,.8);
+ counter(-2,-2.5,2,.8);
+ counter(0,-2.8,2,.8);
+ counter(2,-2.5,2,.8);
+ counter(4,-2,2,.8);
+ displayPizza(-3,-2);
+ displayPizza(0,-2.8);
+ displayPizza(3,-2);
+
+ fridge(-5,0);
+ counter(-1,0,3,.9,M.wood);
+ counter(3,0,3,.9);
+
+ for(let z=-6;z<=6;z+=3){
+  box(map,-9,.65,z,1,1.3,2.5,M.red);
+  box(map,-8.45,1.25,z,1,.16,2.5,M.redDark);
+  table(-6.5,z);
+ }
+ for(let x=-6;x<=6;x+=4)table(x,6.3);
+
+ plant(-9,-8);plant(9,-7.5);plant(-9,8);plant(9,8);
+ box(map,0,3.05,-8.8,5,.7,.12,M.red);
+}
+buildMap();
+
+// First-person position and camera
+const EYE=1.65;
+const player={
+ x:0,y:EYE,z:5,
+ yaw:0,
+ pitch:0,
+ vy:0,
+ onGround:true
+};
+camera.position.set(player.x,player.y,player.z);
+
+let started=false;
+let stars=0,money=0;
+let stage=0;
+let order=null;
+let selected=[];
+let baked=false,picked=false;
+let customer=null;
+let customerNumber=0;
+const keys={};
+let joyX=0,joyY=0;
+let messageTimer;
+
+const recipes=[
+ {name:"Margherita",items:["Dough","Sauce","Cheese"]},
+ {name:"Pepperoni",items:["Dough","Sauce","Cheese","Pepperoni"]},
+ {name:"Veggie",items:["Dough","Sauce","Cheese","Mushrooms","Peppers"]},
+ {name:"Cheese Pizza",items:["Dough","Sauce","Cheese"]},
+ {name:"Supreme",items:["Dough","Sauce","Cheese","Pepperoni","Mushrooms","Peppers"]}
+];
+const allIngredients=["Dough","Sauce","Cheese","Pepperoni","Mushrooms","Peppers"];
+
+function showMessage(t){
+ const el=document.getElementById("message");
+ el.textContent=t;
+ el.style.display="block";
+ clearTimeout(messageTimer);
+ messageTimer=setTimeout(()=>el.style.display="none",2500);
+}
+function updateStats(){
+ document.getElementById("stars").textContent=stars;
+ document.getElementById("money").textContent=money;
+}
+function updateTasks(){
+ const tasks=[
+  "Take customer order",
+  "Prepare the pizza",
+  "Bake the pizza",
+  "Pick up the pizza",
+  "Serve the customer"
+ ];
+ document.getElementById("tasklist").innerHTML=tasks.map((t,i)=>
+  `<div class="task ${i<stage?"done":""}"><span class="tick"></span>${t}</div>`
+ ).join("");
+}
+function setStage(n){
+ stage=n;
+ updateTasks();
+}
+function newOrder(){
+ order=recipes[Math.floor(Math.random()*recipes.length)];
+ selected=[];
+ baked=false;
+ picked=false;
+ document.getElementById("orderText").innerHTML="<b>"+order.name+"</b><br>"+order.items.join(" + ");
+ document.getElementById("pizzaStatus").textContent="Take the customer's order.";
+ const root=document.getElementById("ingredients");
+ root.innerHTML="";
+ allIngredients.forEach(item=>{
+  const b=document.createElement("button");
+  b.textContent=item;
+  b.onclick=()=>{
+   if(stage<1||stage>1){showMessage("Take the order first!");return;}
+   if(selected.includes(item)){
+    selected=selected.filter(v=>v!==item);
+    b.classList.remove("selected");
+   }else{
+    selected.push(item);
+    b.classList.add("selected");
+   }
+  };
+  root.appendChild(b);
+ });
+ setStage(0);
+}
+function createCustomer(){
+ if(customer)map.remove(customer);
+ customer=new THREE.Group();
+ const shirt=mat("customerShirt"+customerNumber,[0x9b4eb3,0xdba13c,0x329e9b,0xc64c4c][customerNumber%4]);
+ box(customer,0,1,0,.65,1,.4,shirt);
+ cyl(customer,0,1.8,0,.3,.5,M.skin);
+ cyl(customer,0,2.12,0,.32,.14,M.black);
+ customer.position.set(7,0,2);
+ map.add(customer);
+}
+function startNewCustomer(){
+ customerNumber++;
+ createCustomer();
+ newOrder();
+ showMessage("A new customer has arrived!");
+}
+function fail(text){
+ stars=Math.max(0,stars-1);
+ updateStats();
+ showMessage("❌ "+text+" (-1 star)");
+}
+function distance(x,z){
+ return Math.hypot(player.x-x,player.z-z);
+}
+function nearby(){
+ if(distance(7,2)<3)return "customer";
+ if(distance(0,-4.2)<3)return "prep";
+ if(distance(-3.3,-7.1)<3)return "oven";
+ if(distance(1,0)<3)return "pickup";
+ return "";
+}
+function use(){
+ if(!started)return;
+ const station=nearby();
+ if(!station){
+  showMessage("Walk closer to a station or customer.");
+  return;
+ }
+ if(station==="customer"){
+  if(stage===0){
+   setStage(1);
+   document.getElementById("pizzaStatus").textContent="Order taken! Choose the correct ingredients.";
+   showMessage("Customer ordered "+order.name+"!");
+  }else if(stage===5){
+   showMessage("You already served this customer!");
+  }else{
+   showMessage("Finish making the pizza first!");
+  }
+ }
+ if(station==="prep"){
+  if(stage===1){
+   const correct=selected.length===order.items.length&&order.items.every(x=>selected.includes(x));
+   if(!correct){fail("Your ingredients are incorrect!");return;}
+   setStage(2);
+   document.getElementById("pizzaStatus").textContent="Pizza prepared. Take it to the oven.";
+   showMessage("Pizza prepared! Go to the oven.");
+  }else showMessage("Take the customer's order first.");
+ }
+ if(station==="oven"){
+  if(stage===2){
+   baked=true;
+   setStage(3);
+   document.getElementById("pizzaStatus").textContent="Pizza baked! Go to pickup.";
+   showMessage("🔥 Pizza baked perfectly!");
+  }else if(stage<2)showMessage("Prepare your pizza first.");
+  else showMessage("Your pizza is already baked.");
+ }
+ if(station==="pickup"){
+  if(stage===3){
+   picked=true;
+   setStage(4);
+   document.getElementById("pizzaStatus").textContent="Pizza collected. Take it to the customer.";
+   showMessage("Pizza picked up! Deliver it.");
+  }else showMessage("Bake your pizza first.");
+ }
+}
+
+// Buttons
+document.getElementById("prepare").onclick=()=>{
+ if(stage!==1){showMessage("Take the customer order first.");return;}
+ if(distance(0,-4.2)>3){showMessage("Go to the prep counter first.");return;}
+ use();
+};
+document.getElementById("bake").onclick=()=>{
+ if(stage!==2){showMessage("Prepare your pizza first.");return;}
+ if(distance(-3.3,-7.1)>3){showMessage("Go to the oven first.");return;}
+ use();
+};
+document.getElementById("pickup").onclick=()=>{
+ if(stage!==3){showMessage("Bake your pizza first.");return;}
+ if(distance(1,0)>3){showMessage("Go to the pickup counter.");return;}
+ use();
+};
+document.getElementById("serve").onclick=()=>{
+ if(stage!==4){showMessage("Finish the other tasks first.");return;}
+ if(distance(7,2)>3){showMessage("Go to the customer first.");return;}
+ stars++;
+ money+=25;
+ updateStats();
+ setStage(5);
+ document.getElementById("pizzaStatus").textContent="Order complete! Waiting for next customer.";
+ showMessage("⭐ Great work! +1 star and $25!");
+ setTimeout(startNewCustomer,1600);
+};
+
+// Jump
+function jump(){
+ if(!started||!player.onGround)return;
+ player.vy=6;
+ player.onGround=false;
+}
+
+// Movement
+function movement(dt){
+ let forward=0,side=0;
+ if(keys.w||keys.arrowup)forward+=1;
+ if(keys.s||keys.arrowdown)forward-=1;
+ if(keys.a||keys.arrowleft)side-=1;
+ if(keys.d||keys.arrowright)side+=1;
+ forward+=-joyY;
+ side+=joyX;
+ const length=Math.hypot(forward,side);
+ if(length>1){forward/=length;side/=length;}
+ const speed=5*dt;
+ const fx=-Math.sin(player.yaw),fz=-Math.cos(player.yaw);
+ const rx=Math.cos(player.yaw),rz=-Math.sin(player.yaw);
+ player.x+=(fx*forward+rx*side)*speed;
+ player.z+=(fz*forward+rz*side)*speed;
+ player.x=Math.max(-9.8,Math.min(9.8,player.x));
+ player.z=Math.max(-8.2,Math.min(8.2,player.z));
+
+ // jump physics
+ if(!player.onGround){
+  player.y+=player.vy*dt;
+  player.vy-=18*dt;
+  if(player.y<=EYE){
+   player.y=EYE;
+   player.vy=0;
+   player.onGround=true;
+  }
+ }
+
+ camera.position.set(player.x,player.y,player.z);
+ // set all 3 angles so there is NEVER any roll/tilt
+ camera.rotation.set(player.pitch,player.yaw,0,"YXZ");
+}
+
+document.addEventListener("keydown",e=>{
+ const k=e.key.toLowerCase();
+ keys[k]=true;
+ if(k==="e")use();
+ if(e.code==="Space"){e.preventDefault();jump();}
+});
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+// Black and white joystick
+const joystick=document.getElementById("joystick");
+const knob=document.getElementById("knob");
+let joyActive=false;
+let joyPointer=null;
+function moveJoy(e){
+ const rect=joystick.getBoundingClientRect();
+ const cx=rect.left+rect.width/2;
+ const cy=rect.top+rect.height/2;
+ let dx=e.clientX-cx,dy=e.clientY-cy;
+ const max=48;
+ const len=Math.hypot(dx,dy);
+ if(len>max){dx=dx/len*max;dy=dy/len*max;}
+ joyX=dx/max;
+ joyY=dy/max;
+ knob.style.transform=`translate(${dx}px,${dy}px)`;
+}
+joystick.addEventListener("pointerdown",e=>{
+ e.preventDefault();
+ joyActive=true;
+ joyPointer=e.pointerId;
+ joystick.setPointerCapture(e.pointerId);
+ moveJoy(e);
+});
+joystick.addEventListener("pointermove",e=>{
+ if(joyActive&&e.pointerId===joyPointer)moveJoy(e);
+});
+function resetJoy(){
+ joyActive=false;
+ joyX=0;joyY=0;
+ knob.style.transform="translate(0,0)";
+}
+joystick.addEventListener("pointerup",resetJoy);
+joystick.addEventListener("pointercancel",resetJoy);
+joystick.addEventListener("lostpointercapture",resetJoy);
+
+// Touch look on the right side
+const lookarea=document.getElementById("lookarea");
+let looking=false;
+let lookId=null,lastLookX=0,lastLookY=0;
+lookarea.addEventListener("pointerdown",e=>{
+ if(e.pointerType==="mouse")return;
+ looking=true;
+ lookId=e.pointerId;
+ lastLookX=e.clientX;
+ lastLookY=e.clientY;
+ lookarea.setPointerCapture(e.pointerId);
+});
+lookarea.addEventListener("pointermove",e=>{
+ if(!looking||e.pointerId!==lookId)return;
+ const dx=e.clientX-lastLookX;
+ const dy=e.clientY-lastLookY;
+ player.yaw-=dx*.006;
+ player.pitch=Math.max(-1.15,Math.min(1.15,player.pitch-dy*.004));
+ lastLookX=e.clientX;
+ lastLookY=e.clientY;
+});
+lookarea.addEventListener("pointerup",()=>looking=false);
+lookarea.addEventListener("pointercancel",()=>looking=false);
+
+// Desktop mouse look with pointer lock
+renderer.domElement.addEventListener("click",()=>{
+ if(started&&!isTouch&&document.pointerLockElement!==renderer.domElement){
+  renderer.domElement.requestPointerLock?.();
+ }
+});
+document.addEventListener("mousemove",e=>{
+ if(started&&document.pointerLockElement===renderer.domElement){
+  player.yaw-=e.movementX*.0025;
+  player.pitch=Math.max(-1.15,Math.min(1.15,player.pitch-e.movementY*.002));
+ }
+});
+
+document.getElementById("use").onclick=use;
+const jumpBtn=document.getElementById("jump");
+jumpBtn.addEventListener("pointerdown",e=>{e.preventDefault();jump();});
+document.getElementById("helpbutton").onclick=()=>{
+ const h=document.getElementById("helptext");
+ h.style.display=h.style.display==="block"?"none":"block";
+};
+document.getElementById("tasksToggle").onclick=()=>{
+ document.getElementById("tasks").classList.toggle("open");
+};
+
+document.getElementById("place").onclick=()=>{
+ started=true;
+ document.getElementById("start").style.display="none";
+ document.getElementById("hud").style.display="block";
+ // reset everything the menu camera/spin messed up (this was the tilt bug)
+ map.rotation.set(0,0,0);
+ player.x=0;player.y=EYE;player.z=5;
+ player.yaw=0;player.pitch=0;
+ player.vy=0;player.onGround=true;
+ camera.up.set(0,1,0);
+ camera.rotation.set(0,0,0,"YXZ");
+ createCustomer();
+ newOrder();
+ showMessage("Welcome! Walk to the customer and press USE.");
+};
+
+let last=0;
+function animate(time){
+ requestAnimationFrame(animate);
+ const dt=Math.min((time-last)/1000||.016,.05);
+ last=time;
+ if(started){
+  movement(dt);
+  const n=nearby();
+  document.getElementById("hint").textContent=n?
+   "Nearby: "+n.toUpperCase()+" · Press E / USE":
+   (isTouch?"Joystick to walk · Drag to look":"Walk around · WASD · Mouse to look");
+ }else{
+  map.rotation.y+=.0025;
+  camera.position.set(Math.sin(time*.00025)*22,13,Math.cos(time*.00025)*22);
+  camera.lookAt(0,0,0);
+ }
+ renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+
+window.addEventListener("resize",()=>{
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+})();
+</script>
+</body>
+</html>
